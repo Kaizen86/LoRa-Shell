@@ -7,7 +7,7 @@
 # * Opens the serial port with a screen command
 
 # Make sure to change the below constants for your system!
-I_HAVE_CONFIRMED_THESE_ARE_CORRECT=yes  # Change to 'yes' once you're happy.
+I_HAVE_CONFIRMED_THESE_ARE_CORRECT=no # Change to 'yes' once you're happy.
 PICO_MNTDIR=/run/media/`whoami`/RPI-RP2 # Where the device should be mounted.
 PICO_BLKDEV=/dev/sdd1 # Block device used for automatic mounting, if it isn't already
 SERIAL_PORT=/dev/ttyACM0 # Serial port for the screen command
