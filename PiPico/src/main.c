@@ -35,18 +35,57 @@ int main() {
   sleep_ms(2000);
   printf("UART1 Passthrough (baud=%i, RX=GP%i, TX=GP%i)\n", baud, rx_pin, tx_pin);
 
-  char buffer[2048];
+  char buffer[1024];
+  int cursor = 0;
 
   while (true) {
     // Check if we are sending anything to the radio
     int outgoing = getchar_timeout_us(0);
     if (outgoing && outgoing != PICO_ERROR_TIMEOUT) {
-      uart_puts(uart1, buffer); // Send buffer to radio
+      // Which key was pressed?
+      switch (outgoing) {
+        // Backspace
+        case '\b':
+          // Do nothing if the buffer is empty
+          if (cursor == 0)
+            break;
+          buffer[cursor--] = 0;
+          // Show backspaces for the user's benefit 
+          // A backspace character was just echoed, so overtype the highlighted character and backspace again
+          printf(" \b");
+          break;
+
+        // Newline character
+        case '\r':
+        case '\n':
+          // Do nothing if the buffer is empty
+          if (cursor == 0)
+            break;
+
+          printf("\r\n"); // Echo new line
+          // Place newline characters into buffer
+          buffer[cursor++] = '\r';
+          buffer[cursor++] = '\n';
+          buffer[cursor] = 0; // Null terminator
+
+          uart_puts(uart1, buffer); // Send buffer to radio
+          
+          cursor = 0; // Reset cursor
+          break;
+
+        // Anything else
+        default:
+          buffer[cursor++] = outgoing; // Write the character to the buffer
+      }
     }
 
     // Check if the radio has sent us any data
-    if (uart_gets(uart1, buffer)) {
-      printf("%s", buffer);
+    if (uart_is_readable(uart1)) {
+      // FIXME This should write to an incoming buffer using uart_gets()!
+      // Get a character
+      char incoming = uart_getc(uart1);
+      // Forward it on
+      putchar_raw(incoming);
     }
   }
   
