@@ -12,18 +12,18 @@ def serial_recv(port):
     else:
         return []
 
-def serial_send(port, command):
+def serial_send(port, command, timeout=5):
     # Send command
     port.flush()
     print('-->', command)
     port.write(f"{command}\r\n".encode('ascii'))
 
     # Wait for response
-    for i in range(30):
+    for i in range(timeout*10):
         recv = serial_recv(port)
         if len(recv) > 0:
             break
-        sleep(0.2)
+        sleep(0.1)
     else:
         recv = [] 
 
