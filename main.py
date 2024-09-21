@@ -74,6 +74,8 @@ with Serial("/dev/ttyACM0", 9600) as port:
 
     for command in commands:
         response = config_lora(port, command)
+        if len(response) == 0:
+            raise Exception("No reply from radio module")
         if len(response) > 1:
             print("More than one response... weird")
         for line in response:
