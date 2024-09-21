@@ -58,6 +58,11 @@ def config_lora(port, command):
     # Otherwise return the received data
     return recv
 
+def lora_send(port, address, text):
+    # Filter CLRF because it would signal end of serial data
+    text = text.replace('\r\n', '\n')
+    assert len(text) <= 240, "Text too long, max 240 bytes"
+    serial_send(port, f"AT+SEND={address},{len(text)},{text}", timeout=20)
 
 with Serial("/dev/ttyACM0", 9600) as port:
     # Setup LoRa radio module
