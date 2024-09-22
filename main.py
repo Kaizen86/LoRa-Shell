@@ -2,6 +2,7 @@
 from serial import Serial
 from time import sleep
 from sys import stdout
+import subprocess
 
 def serial_recv(port):
     if port.in_waiting:
@@ -69,7 +70,7 @@ with Serial("/dev/ttyACM0", 9600) as port:
     # https://reyax.com//upload/products_download/download_file/LoRa%20AT%20Command%20RYLR40x_RYLR89x_EN.pdf
     commands = [
         "AT", # Check if the module is connected & ready
-        "AT+PARAMETER=12,7,1,4", # Set LoRa parameters
+        "AT+PARAMETER=10,7,1,7", # Set LoRa parameters
         "AT+BAND=868500000", # 868.5 MHz (Europe license-free band)
         "AT+MODE=0", # Disable sleep mode
         "AT+NETWORKID=3",
@@ -96,9 +97,34 @@ with Serial("/dev/ttyACM0", 9600) as port:
             # Overtype spinner
             print('\r', end='')
         for message in recv:
+            print("<--", message)
             if message.startswith("+RCV"):
                 print("wowie a message for us!")
-            print("<--", message)
+                # Remove '+RCV='
+                message = message.removeprefix("+RCV=")
+                # Extract first two fields and simultaneously remove them
+                sender, _, message = message.partition(',')
+                data_len, _, message = message.partition(',')
+                data_len = int(data_len)
+                # Read the message field
+                data = message[:data_len]
+                # Remove the message field
+                message = message[data_len+1:]
+                # Extract the remaining two fields
+                rssi, snr = message.split(',')
+                # Tidy up
+                del _, message
+
+                match data:
+                    case "":
+                        lora_send(port, sender, "")
+                    case "ping":
+                        lora_send(port, sender, "pong!")
+                    case _:
+                        result = subprocess.run(data.split(' '), capture_output=True)
+                        output = (result.stdout+result.stderr).decode('ascii')
+                        lora_send(port, sender, output[:240]) 
+
 
         animation = "|/─\\"
         spinner += 1
