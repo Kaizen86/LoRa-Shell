@@ -35,9 +35,10 @@ def serial_send(port, command, timeout=5):
     return recv
 
 radio_error_codes = {'+ERR='+str(k):v for k,v in {
-    1: "There is not “enter” or 0x0D 0x0A in the end of the AT Command.",
-    2: "The head of AT command is not “AT” string.",
-    3: "There is not “=” symbol in the AT command.",
+    # Taken from the documentation
+    1: "There is not \"enter\" or 0x0D 0x0A in the end of the AT Command.",
+    2: "The head of AT command is not \"AT\" string.",
+    3: "There is not \"=\" symbol in the AT command.",
     4: "Unknown command.",
     10: "TX is over times.",
     11: "RX is over times.",
