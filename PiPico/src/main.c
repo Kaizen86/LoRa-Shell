@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 
+//#define ENABLE_SERIAL_ECHO
+
 int uart_gets(uart_inst_t *uart, char *output) {
   int length = 0; // Keep track of how many bytes were read
   while (uart_is_readable(uart)) {
@@ -42,6 +44,11 @@ int main() {
     // Check if we are sending anything to the radio
     int outgoing = getchar_timeout_us(0);
     if (outgoing && outgoing != PICO_ERROR_TIMEOUT) {
+      #ifdef ENABLE_SERIAL_ECHO
+        // Echo the input
+        putchar_raw(outgoing);
+      #endif
+
       // Which key was pressed?
       switch (outgoing) {
         // Backspace
@@ -50,9 +57,11 @@ int main() {
           if (cursor == 0)
             break;
           buffer[cursor--] = 0;
-          // Show backspaces for the user's benefit 
-          // A backspace character was just echoed, so overtype the highlighted character and backspace again
-          printf(" \b");
+          #ifdef ENABLE_SERIAL_ECHO
+            // Show backspaces for the user's benefit
+	    // A backspace character was just echoed, so overtype the highlighted character and backspace again
+            printf(" \b");
+          #endif
           break;
 
         // Newline character
@@ -62,7 +71,9 @@ int main() {
           if (cursor == 0)
             break;
 
-          printf("\r\n"); // Echo new line
+          #ifdef ENABLE_SERIAL_ECHO
+            printf("\r\n"); // Echo new line
+          #endif
           // Place newline characters into buffer
           buffer[cursor++] = '\r';
           buffer[cursor++] = '\n';
