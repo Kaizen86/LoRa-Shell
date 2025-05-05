@@ -4,31 +4,31 @@ from time import sleep
 from sys import stdout
 import subprocess
 
-def serial_recv(port):
-    if port.in_waiting:
-        # Format response(s)
-        recv = port.read_all().decode('ascii').split('\n')
-        recv = [s.strip() for s in recv if s.strip() != '']
-        return recv
-    else:
-        return []
+def serial_recv(port, timeout=0.1) -> list:
+    output = []
 
-def serial_send(port, command, timeout=5):
+    # Wait for response
+    for i in range(int(timeout*10)):
+        if port.in_waiting:
+            # Format response(s)
+            recv = port.read_all().decode('ascii').split('\n')
+            recv = [s.strip() for s in recv if s.strip() != '']
+            output += recv
+
+        if len(output) > 0:
+            break
+        sleep(0.1)
+
+    return output
+
+def serial_send(port, command, timeout=5) -> list:
     # Send command
     port.flush()
     print('-->', command)
     port.write(f"{command}\r\n".encode('ascii'))
 
-    # Wait for response
-    for i in range(timeout*10):
-        recv = serial_recv(port)
-        if len(recv) > 0:
-            break
-        sleep(0.1)
-    else:
-        recv = [] 
-
     # Print response(s)
+    recv = serial_recv(port, timeout)
     for message in recv:
         print('<--', message)
     
@@ -47,7 +47,7 @@ radio_error_codes = {'+ERR='+str(k):v for k,v in {
     15: "Unknown error."
 }.items()}
 
-def config_lora(port, command):
+def config_lora(port, command) -> list:
     # Clear input buffer
     #port.read_all()
     # Send command and wait for response
@@ -60,11 +60,70 @@ def config_lora(port, command):
     # Otherwise return the received data
     return recv
 
-def lora_send(port, address, text):
-    # Filter CLRF because it would signal end of serial data
-    text = text.replace('\r\n', '\n')
+def lora_send(port, address, text, timeout=20) -> list:
+    """Send a text message to some LoRa address. Device should first be set up with config_lora().
+    Inputs:
+        port: Serial port of LoRa device
+        address: Destination NETWORKID
+        text: String message, up to 240 bytes. \\r and \\n are filtered.
+        timeout: Maximum time to wait for transmit in seconds
+    Returns:
+        Reponses from LoRa device after transmitting. Typically ["+OK"].
+        Reading incoming messages should be done with lora_recv().
+    """
+    # Filter newlines because it would signal end of serial data
+    for remove in '\r\n':
+        text = text.replace(remove, '')
+
     assert len(text) <= 240, "Text too long, max 240 bytes"
-    serial_send(port, f"AT+SEND={address},{len(text)},{text}", timeout=20)
+    return serial_send(port, f"AT+SEND={address},{len(text)},{text}", timeout=timeout)
+
+def lora_recv(port, timeout=0.1) -> list:
+    """Checks for any received messages from LoRa network. Device should first be set up with config_lora().
+    Inputs:
+        port: Serial port of LoRa device
+        timeout: Maximum time to wait for a message
+    Returns:
+        List of messages, where each message is a list with the following values:
+        [sender_address, message, rssi, snr]
+        There may be more than one message, depending on how long it's been since lora_recv() was last called.
+        This function should be called regularly to avoid unread messages potentially overflowing the Pico's UART buffer!
+        If the timeout was exceeded, an empty list is returned.
+    """
+    output = []
+    
+    recv = serial_recv(port, timeout)
+    """
+    if recv:
+        # Overtype spinner
+        print('\r', end='')
+    """
+    for message in recv:
+        #print("<--", message)
+        if message.startswith("+RCV"):
+            #print("wowie a message for us!")
+            print(message)
+            # Remove '+RCV='
+            message = message.removeprefix("+RCV=")
+            # Extract first two fields and simultaneously remove them
+            sender, _, message = message.partition(',')
+            data_len, _, message = message.partition(',')
+            data_len = int(data_len)
+            # Read the message field
+            data = message[:data_len]
+            # Remove the message field
+            message = message[data_len+1:]
+            # Extract the remaining two fields
+            print(type(message))
+            print(len(message))
+            print(f"'{message}'")
+            rssi, snr = message.split(',')
+            # Tidy up
+            del _, message
+
+            output.append([sender, data, rssi, snr])
+
+    return output
 
 with Serial("/dev/ttyACM0", 9600) as port:
     # Setup LoRa radio module
@@ -75,47 +134,26 @@ with Serial("/dev/ttyACM0", 9600) as port:
         "AT+BAND=868500000", # 868.5 MHz (Europe license-free band)
         "AT+MODE=0", # Disable sleep mode
         "AT+NETWORKID=3",
-        "AT+ADDRESS=86",
+        "AT+ADDRESS=69",
         "AT+CRFOP=00" # Output power in dBm (00-15)
     ]
 
     for command in commands:
-        response = config_lora(port, command)
-        if len(response) == 0:
+        responses = config_lora(port, command)
+        if len(responses) == 0:
             raise Exception("No reply from radio module")
-        elif len(response) > 1:
+        elif len(responses) > 1:
             print("More than one response... weird")
 
-        for line in response:
+        for line in responses:
             if line != "+OK":
                 raise Exception("AA something broke")
 
     print("Setup complete")
 
+    """
     spinner = 0
     while True:
-        recv = serial_recv(port)
-        if recv:
-            # Overtype spinner
-            print('\r', end='')
-        for message in recv:
-            print("<--", message)
-            if message.startswith("+RCV"):
-                print("wowie a message for us!")
-                # Remove '+RCV='
-                message = message.removeprefix("+RCV=")
-                # Extract first two fields and simultaneously remove them
-                sender, _, message = message.partition(',')
-                data_len, _, message = message.partition(',')
-                data_len = int(data_len)
-                # Read the message field
-                data = message[:data_len]
-                # Remove the message field
-                message = message[data_len+1:]
-                # Extract the remaining two fields
-                rssi, snr = message.split(',')
-                # Tidy up
-                del _, message
 
                 match data:
                     case "":
@@ -135,3 +173,9 @@ with Serial("/dev/ttyACM0", 9600) as port:
         print('\r '+animation[spinner], end=' ')
         stdout.flush()
         sleep(1)
+    """
+
+    while True:
+        mesg = input("Message? ")
+        lora_send(port, 86, mesg) # Send to my pc
+        print(lora_recv(port, timeout=20)) # Await response
