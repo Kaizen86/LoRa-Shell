@@ -1,1 +1,7 @@
+# Ignore CMake build folder; it must be rebuilt each time
 PiPico/build
+
+# Ignore KiCad backup zips
+FlipperBoard/FlipperBoard-backups/*.zip
+# Ignore KiCad lock files
+FlipperBoard/*.lck
