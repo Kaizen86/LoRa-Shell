@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
+# Get the path to the parent folder containing this script
+source="$(dirname $(realpath ${BASH_SOURCE[0]}))"
+
 # Check if the path to the SDK directory hasn't already been set
 # This will override the default listed in CMakeLists.txt
 if [ -z "$PICO_SDK_PATH" ]; then
   # Make sure to change this to point at your SDK directory!
-  export PICO_SDK_PATH="`pwd`/../../pico-sdk"
+  export PICO_SDK_PATH="$source/../../../pico-sdk"
 fi
 # Verify the specified folder exists
 if [ ! -d "$PICO_SDK_PATH" ]; then
@@ -15,7 +18,7 @@ fi
 
 # Create build output directory
 mkcd() { mkdir -p "$@" && cd "$@"; }
-mkcd build
+mkcd "$source/build"
 
 # Run CMake compiler
 cmake ..

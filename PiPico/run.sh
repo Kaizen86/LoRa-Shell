@@ -85,13 +85,16 @@ if [ ! -d "$PICO_MNTDIR" ]; then
   echo -e "Successfully mounted device!\n" # All went well!
 fi
 
+# Get the path to the parent folder containing this script
+source="$(dirname $(realpath ${BASH_SOURCE[0]}))"
+
 # Run the build script and exit if it fails
-./build.sh
+"$source/build.sh"
 [ $? -ne 0 ] && exit 1
 
 # Attempt to copy the firmware file
 echo -n "Uploading uf2... "
-cp build/*.uf2 "$PICO_MNTDIR"
+cp "$source"/build/*.uf2 "$PICO_MNTDIR"
 if [ $? -ne 0 ]; then
   >&2 echo -e \nUnable to copy firmware!
   exit 1
