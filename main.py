@@ -102,7 +102,6 @@ def lora_recv(port, timeout=0.1) -> list:
         #print("<--", message)
         if message.startswith("+RCV"):
             #print("wowie a message for us!")
-            print(message)
             # Remove '+RCV='
             message = message.removeprefix("+RCV=")
             # Extract first two fields and simultaneously remove them
@@ -114,9 +113,6 @@ def lora_recv(port, timeout=0.1) -> list:
             # Remove the message field
             message = message[data_len+1:]
             # Extract the remaining two fields
-            print(type(message))
-            print(len(message))
-            print(f"'{message}'")
             rssi, snr = message.split(',')
             # Tidy up
             del _, message
@@ -124,6 +120,12 @@ def lora_recv(port, timeout=0.1) -> list:
             output.append([sender, data, rssi, snr])
 
     return output
+
+
+
+
+receiver = True
+
 
 with Serial("/dev/ttyACM0", 9600) as port:
     # Setup LoRa radio module
@@ -134,7 +136,7 @@ with Serial("/dev/ttyACM0", 9600) as port:
         "AT+BAND=868500000", # 868.5 MHz (Europe license-free band)
         "AT+MODE=0", # Disable sleep mode
         "AT+NETWORKID=3",
-        "AT+ADDRESS=69",
+        "AT+ADDRESS=" + "86" if receiver else "69",
         "AT+CRFOP=00" # Output power in dBm (00-15)
     ]
 
@@ -151,9 +153,13 @@ with Serial("/dev/ttyACM0", 9600) as port:
 
     print("Setup complete")
 
-    """
     spinner = 0
+
     while True:
+        if receiver:
+            data = lora_recv(port)
+            for mesg in data:
+                sender, data, rssi, snr = mesg
 
                 match data:
                     case "":
@@ -166,16 +172,15 @@ with Serial("/dev/ttyACM0", 9600) as port:
                         lora_send(port, sender, output[:240]) 
 
 
-        animation = "|/─\\"
-        spinner += 1
-        if spinner >= len(animation):
-            spinner = 0
-        print('\r '+animation[spinner], end=' ')
-        stdout.flush()
-        sleep(1)
-    """
+            animation = "|/─\\"
+            spinner += 1
+            if spinner >= len(animation):
+                spinner = 0
+            print('\r '+animation[spinner], end=' ')
+            stdout.flush()
+            sleep(1)
 
-    while True:
-        mesg = input("Message? ")
-        lora_send(port, 86, mesg) # Send to my pc
-        print(lora_recv(port, timeout=20)) # Await response
+        else:
+            mesg = input("Message? ")
+            lora_send(port, 86, mesg) # Send to my pc
+            print(lora_recv(port, timeout=20)) # Await response
