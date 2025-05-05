@@ -124,7 +124,7 @@ def lora_recv(port, timeout=0.1) -> list:
 
 
 
-receiver = True
+receiver = False
 
 
 with Serial("/dev/ttyACM0", 9600) as port:
@@ -136,7 +136,7 @@ with Serial("/dev/ttyACM0", 9600) as port:
         "AT+BAND=868500000", # 868.5 MHz (Europe license-free band)
         "AT+MODE=0", # Disable sleep mode
         "AT+NETWORKID=3",
-        "AT+ADDRESS=" + "86" if receiver else "69",
+        "AT+ADDRESS=" + ("86" if receiver else "69"),
         "AT+CRFOP=00" # Output power in dBm (00-15)
     ]
 
